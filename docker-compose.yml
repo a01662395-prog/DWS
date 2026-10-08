@@ -1,0 +1,15 @@
+services:
+  dashboard:
+    build: .
+    image: cifracontrol-dashboard:latest
+    container_name: cifracontrol
+    ports:
+      - "3000:3000"
+    environment:
+      - SIMULATED_DELAY_MS=900
+    volumes:
+      - uploads_data:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  uploads_data:

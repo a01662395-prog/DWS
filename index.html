@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="es" data-tema="claro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CifraControl · Cifrado e inventario</title>
+<meta name="description" content="Panel de control de cifrado, inventario tecnológico, monitoreo y excepciones.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='19' font-size='19'>🔐</text></svg>">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+<!-- ==========================================================================
+     BIBLIOTECA DE ICONOS
+     Sprite SVG en línea: cero peticiones de red y color heredable (currentColor).
+     Uso: <svg class="ico"><use href="#i-candado"></use></svg>
+     ========================================================================== -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
+  <symbol id="i-candado" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-resumen" viewBox="0 0 24 24"><path d="M4 19V5m0 14h16"/><path d="M8 15l3.5-4 3 2.5L20 7"/></symbol>
+  <symbol id="i-inventario" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></symbol>
+  <symbol id="i-actividad" viewBox="0 0 24 24"><path d="M2 12h4l3-8 4 16 3-8h6"/></symbol>
+  <symbol id="i-alerta" viewBox="0 0 24 24"><path d="M12 3l9 17H3z"/><path d="M12 10v4m0 3v.01"/></symbol>
+  <symbol id="i-subir" viewBox="0 0 24 24"><path d="M12 16V4m-5 5l5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+  <symbol id="i-nube" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.4-9A6 6 0 0 1 18 9.5a3.5 3.5 0 0 1-.5 8.5z"/><path d="M12 15v-5m-2.5 2.5L12 10l2.5 2.5"/></symbol>
+  <symbol id="i-ajustes" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 8 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 14H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 8a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9 3V3a2 2 0 1 1 4 0v.1A1.6 1.6 0 0 0 15 4.6a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-servidor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5v.01M7 16.5v.01"/></symbol>
+  <symbol id="i-escudo" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.4 8.3-8 9.5C7.4 20.3 4 17 4 12V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-campana" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></symbol>
+  <symbol id="i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></symbol>
+  <symbol id="i-luna" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="i-refrescar" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></symbol>
+  <symbol id="i-cerrar" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-flecha-der" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-flecha-izq" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-flecha-arriba" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="i-flecha-abajo" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-reintentar" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 3v5h-5"/></symbol>
+  <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M2 3l20 18"/><path d="M8.5 15.5a5 5 0 0 1 7 0"/><path d="M5 12a10 10 0 0 1 3-2.2M19 12a10 10 0 0 0-6-3"/><path d="M2 8.8A15 15 0 0 1 7 5.7M12 20h.01"/></symbol>
+</svg>
+
+<!-- ==========================================================================
+     ESTRUCTURA GENERAL: sidebar + barra superior + zona de vistas
+     ========================================================================== -->
+<a class="salto" href="#contenido">Saltar al contenido</a>
+
+<div class="app">
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- SIDEBAR COLAPSABLE: en escritorio se pliega a barra de iconos;      -->
+  <!-- en móvil se oculta tras el botón hamburguesa de la barra superior. -->
+  <!-- ------------------------------------------------------------------ -->
+  <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
+
+    <div class="sidebar__marca">
+      <span class="marca__logo"><svg class="ico"><use href="#i-candado"></use></svg></span>
+      <span class="marca__texto">
+        <strong>CifraControl</strong>
+        <small>Panel de cifrado</small>
+      </span>
+    </div>
+
+    <nav class="nav">
+      <p class="nav__titulo">Navegación</p>
+      <a class="nav__link is-activo" data-ir="resumen" href="#/resumen">
+        <svg class="ico"><use href="#i-resumen"></use></svg><span class="nav__txt">Resumen de cifrado</span>
+      </a>
+      <a class="nav__link" data-ir="inventario" href="#/inventario">
+        <svg class="ico"><use href="#i-inventario"></use></svg><span class="nav__txt">Inventario</span>
+        <b class="nav__badge" data-badge="inventario" hidden>0</b>
+      </a>
+      <a class="nav__link" data-ir="tecnologias" href="#/tecnologias">
+        <svg class="ico"><use href="#i-chip"></use></svg><span class="nav__txt">Tecnologías</span>
+        <b class="nav__badge nav__badge--alerta" data-badge="tecnologias" hidden>0</b>
+      </a>
+      <a class="nav__link" data-ir="monitoreo" href="#/monitoreo">
+        <svg class="ico"><use href="#i-actividad"></use></svg><span class="nav__txt">Monitoreo</span>
+        <b class="nav__badge" data-badge="monitoreo" hidden>0</b>
+      </a>
+      <a class="nav__link" data-ir="excepciones" href="#/excepciones">
+        <svg class="ico"><use href="#i-alerta"></use></svg><span class="nav__txt">Excepciones</span>
+        <b class="nav__badge nav__badge--peligro" data-badge="excepciones" hidden>0</b>
+      </a>
+
+      <p class="nav__titulo">Herramientas y datos</p>
+      <a class="nav__link" data-ir="carga" href="#/carga">
+        <svg class="ico"><use href="#i-subir"></use></svg><span class="nav__txt">Cargar Excel</span>
+        <b class="nav__badge nav__badge--info" data-badge="carga" hidden>0</b>
+      </a>
+      <a class="nav__link" data-ir="ajustes" href="#/ajustes">
+        <svg class="ico"><use href="#i-ajustes"></use></svg><span class="nav__txt">Ajustes</span>
+      </a>
+    </nav>
+
+    <div class="sidebar__pie">
+      <div class="salud" id="saludSidebar" data-estado="comprobando">
+        <span class="salud__punto"></span><span class="salud__txt">Comprobando API…</span>
+      </div>
+      <p class="pie__nota">MVP local · sin autenticación</p>
+    </div>
+  </aside>
+
+  <!-- Capa oscura que cierra el menú en móvil -->
+  <div class="capa" id="capa" hidden></div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- COLUMNA PRINCIPAL                                                    -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="principal">
+
+    <header class="barra">
+      <button class="btn-icon" id="btnMenu" aria-label="Mostrar u ocultar el menú" aria-expanded="true">
+        <svg class="ico"><use href="#i-menu"></use></svg>
+      </button>
+
+      <div class="barra__titulo">
+        <h1 id="tituloVista">Resumen de cifrado</h1>
+        <p id="subtituloVista">Estado global del cifrado del parque</p>
+      </div>
+
+      <div class="barra__acciones">
+        <span class="pastilla" id="pastillaApi" data-estado="comprobando" title="Estado de la API">
+          <span class="pastilla__punto"></span><span id="pastillaApiTxt">Comprobando…</span>
+        </span>
+
+        <div class="popover" id="popNotificaciones">
+          <button class="btn-icon" id="btnNotificaciones" aria-label="Notificaciones" aria-expanded="false">
+            <svg class="ico"><use href="#i-campana"></use></svg>
+            <b class="btn-icon__badge" data-badge="notificaciones" hidden>0</b>
+          </button>
+          <div class="popover__cuerpo" id="listaNotificaciones" hidden>
+            <p class="popover__vacio">Sin novedades.</p>
+          </div>
+        </div>
+
+        <button class="btn-icon" id="btnTema" aria-label="Cambiar entre tema claro y oscuro">
+          <svg class="ico ico--claro"><use href="#i-sol"></use></svg>
+          <svg class="ico ico--oscuro"><use href="#i-luna"></use></svg>
+        </button>
+
+        <span class="avatar" title="Sesión local (sin login)">CC</span>
+      </div>
+    </header>
+
+    <main class="contenido" id="contenido">
+
+      <!-- ================================================================
+           VISTA 1 · RESUMEN DE CIFRADO
+           Tres módulos independientes: KPIs, serie temporal y reparto.
+           Cada uno tiene su esqueleto y su propio error con reintento.
+           ================================================================ -->
+      <section class="vista is-activa" data-vista="resumen">
+
+        <div class="modulo" data-modulo="kpis">
+          <!-- Esqueletos de carga: 4 tarjetas con la silueta de un KPI -->
+          <div class="kpis" data-skel>
+            <article class="kpi"><div class="skel skel--linea skel--w40"></div><div class="skel skel--num"></div><div class="skel skel--linea skel--w60"></div></article>
+            <article class="kpi"><div class="skel skel--linea skel--w40"></div><div class="skel skel--num"></div><div class="skel skel--linea skel--w60"></div></article>
+            <article class="kpi"><div class="skel skel--linea skel--w40"></div><div class="skel skel--num"></div><div class="skel skel--linea skel--w60"></div></article>
+            <article class="kpi"><div class="skel skel--linea skel--w40"></div><div class="skel skel--num"></div><div class="skel skel--linea skel--w60"></div></article>
+          </div>
+
+          <!-- Fallo aislado: sólo este módulo se ve afectado -->
+          <div class="fallo" data-fallo hidden>
+            <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
+            <h3>No se pudieron cargar los indicadores</h3>
+            <p data-fallo-msg></p>
+            <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
+          </div>
+
+          <!-- Contenido real: lo inyecta pintarKpis() -->
+          <div class="kpis" data-datos="kpis"></div>
+        </div>
+
+        <div class="rejilla-2">
+          <div class="modulo" data-modulo="serie">
+            <article class="tarjeta">
+              <header class="tarjeta__cab">
+                <div><h2>Volumen cifrado por día</h2><p>GB protegidos frente al objetivo diario</p></div>
+                <div class="segmentos" role="group" aria-label="Rango de fechas">
+                  <button class="segmento" data-rango="7">7 d</button>
+                  <button class="segmento is-activo" data-rango="30">30 d</button>
+                  <button class="segmento" data-rango="90">90 d</button>
+                </div>
+              </header>
+              <div class="tarjeta__cuerpo">
+                <div class="skel-esq" data-skel>
+                  <div class="skel skel--grafico"></div>
+                  <div class="leyenda-esq"><div class="skel skel--linea skel--w25"></div><div class="skel skel--linea skel--w25"></div><div class="skel skel--linea skel--w25"></div></div>
+                </div>
+                <div class="fallo" data-fallo hidden>
+                  <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
+                  <h3>El gráfico no está disponible</h3>
+                  <p data-fallo-msg></p>
+                  <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
+                </div>
+                <div data-datos="serie"></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="modulo" data-modulo="algoritmos">
+            <article class="tarjeta">
+              <header class="tarjeta__cab"><div><h2>Reparto por algoritmo</h2><p>Qué cifra cada activo del parque</p></div></header>
+              <div class="tarjeta__cuerpo">
+                <div class="skel-esq" data-skel>
+                  <div class="skel skel--donut"></div>
+                  <div class="donut-lista-esq"><div class="skel skel--linea"></div><div class="skel skel--linea"></div><div class="skel skel--linea"></div></div>
+                </div>
+                <div class="fallo" data-fallo hidden>
+                  <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
+                  <h3>No se pudo leer el reparto</h3>
+                  <p data-fallo-msg></p>
+                  <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
+                </div>
+                <div data-datos="algoritmos"></div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           VISTA 2 · INVENTARIO
+           ================================================================ -->
+      <section class="vista" data-vista="inventario" hidden>
+        <div class="modulo" data-modulo="inventario">
+          <article class="tarjeta">
+            <header class="tarjeta__cab">
+              <div><h2>Inventario de activos</h2><p>Servidores, bases de datos, endpoints y almacenes</p></div>
+              <div class="filtros">
+                <label class="campo campo--buscar">
+                  <svg class="ico"><use href="#i-buscar"></use></svg>
+                  <input type="search" id="fBusqueda" placeholder="Buscar activo, ubicación o responsable" aria-label="Buscar en el inventario">
+                </label>
+                <select id="fEstado" class="campo" aria-label="Filtrar por estado de cifrado">
+                  <option value="">Todos los estados</option>
+                  <option value="protegido">Protegido</option>
+                  <option value="parcial">Cifrado parcial</option>
+                  <option value="sin_cifrar">Sin cifrar</option>
+                </select>
+                <select id="fTipo" class="campo" aria-label="Filtrar por tipo de activo">
+                  <option value="">Todos los tipos</option>
+                </select>
+                <button class="btn" id="btnRefrescarInventario" title="Actualizar la tabla">
+                  <svg class="ico"><use href="#i-refrescar"></use></svg>
+                </button>
+              </div>
+            </header>
+            <div class="tarjeta__cuerpo">
+              <div class="skel-esq" data-skel>
+                <div class="skel skel--linea"></div><div class="skel skel--linea"></div><div class="skel skel--linea"></div>
+                <div class="skel skel--linea"></div><div class="skel skel--linea"></div>
+              </div>
+              <div class="fallo" data-fallo hidden>
+                <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
+                <h3>El inventario no se pudo cargar</h3>
+                <p data-fallo-msg></p>
+                <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
+              </div>
+              <div data-datos="inventario"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           VISTA 3 · TECNOLOGÍAS
+           ================================================================ -->
+      <section class="vista" data-vista="tecnologias" hidden>
+        <div class="modulo" data-modulo="tecnologias">
+          <article class="tarjeta">
+            <header class="tarjeta__cab">
+              <div><h2>Stack tecnológico</h2><p>Versiones detectadas y riesgo asociado</p></div>
+            </header>
+            <div class="tarjeta__cuerpo">
+              <div class="skel-esq" data-skel>
+                <div class="skel skel--linea"></div><div class="skel skel--linea"></div><div class="skel skel--linea"></div><div class="skel skel--linea"></div>
+              </div>
+              <div class="fallo" data-fallo hidden>
+                <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
+                <h3>El inventario tecnológico no se pudo cargar</h3>
+                <p data-fallo-msg></p>
+                <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
+              </div>
+              <div data-datos="tecnologias"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           VISTA 4 · MONITOREO
+           ================================================================ -->
+      <section class="vista" data-vista="monitoreo" hidden>
+        <div class="modulo" data-modulo="monitoreo">
+          <article class="tarjeta">
+            <header class="tarjeta__cab">
+              <div><h2>Salud de servicios</h2><p>Disponibilidad y latencia de la última comprobación</p></div>
+              <button class="btn" id="btnRefrescarMonitoreo"><svg class="ico"><use href="#i-refrescar"></use></svg>Actualizar</button>
+            </header>
+            <div class="tarjeta__cuerpo">
+              <div class="skel-esq" data-skel>
+                <div class="serv-esq"><div class="skel skel--caja"></div><div class="skel skel--caja"></div><div class="skel skel--caja"></div></div>
+                <div class="serv-esq"><div class="skel skel--caja"></div><div class="skel skel--caja"></div><div class="skel skel--caja"></div></div>
+              </div>
+              <div class="fallo" data-fallo hidden>
+                <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
+                <h3>El monitoreo no respondió</h3>
+                <p data-fallo-msg></p>
+                <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
+              </div>
+              <div data-datos="monitoreo"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           VISTA 5 · EXCEPCIONES
+           ================================================================ -->
+      <section class="vista" data-vista="excepciones" hidden>
+        <div class="modulo" data-modulo="excepciones">
+          <article class="tarjeta">
+            <header class="tarjeta__cab">
+              <div><h2>Excepciones de cifrado</h2><p>Incidencias abiertas ordenadas por severidad</p></div>
+              <div class="segmentos" role="group" aria-label="Filtrar por severidad">
+                <button class="segmento is-activo" data-sev="">Todas</button>
+                <button class="segmento" data-sev="critica">Críticas</button>
+                <button class="segmento" data-sev="alta">Altas</button>
+                <button class="segmento" data-sev="media">Medias</button>
+                <button class="segmento" data-sev="baja">Bajas</button>
+              </div>
+            </header>
+            <div class="tarjeta__cuerpo">
+              <div class="skel-esq" data-skel>
+                <div class="skel skel--linea"></div><div class="skel skel--linea"></div><div class="skel skel--linea"></div><div class="skel skel--linea"></div>
+              </div>
+              <div class="fallo" data-fallo hidden>
+                <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
+                <h3>Las excepciones no se pudieron cargar</h3>
+                <p data-fallo-msg></p>
+                <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
+              </div>
+              <div data-datos="excepciones"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           VISTA 6 · CARGAR EXCEL  (ingesta diferida)
+           Frontend → Express/Core → /uploads → (futuro worker Python) → PostgreSQL
+           Node.js NO abre ni procesa el archivo: sólo lo almacena.
+           ================================================================ -->
+      <section class="vista" data-vista="carga" hidden>
+        <div class="rejilla-2 rejilla-2--carga">
+
+          <div class="modulo" data-modulo="carga">
+            <article class="tarjeta">
+              <header class="tarjeta__cab">
+                <div><h2>Ingesta de hojas de cálculo</h2><p>Envío directo al almacén de recepción</p></div>
+              </header>
+              <div class="tarjeta__cuerpo">
+                <div class="skel-esq" data-skel>
+                  <div class="skel skel--drop"></div>
+                </div>
+                <div class="fallo" data-fallo hidden>
+                  <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
+                  <h3>El servicio de ingesta no responde</h3>
+                  <p data-fallo-msg></p>
+                  <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
+                </div>
+
+                <div data-datos="carga">
+                  <!-- Zona de arrastrar y soltar -->
+                  <form id="formCarga" class="drop" novalidate>
+                    <input type="file" id="inputExcel" class="sr" accept=".xlsx,.xls,.csv" hidden>
+                    <div class="drop__zona" id="zonaSoltar" tabindex="0" role="button"
+                         aria-label="Arrastra aquí tu archivo o pulsa para seleccionarlo">
+                      <span class="drop__icono"><svg class="ico ico--grande"><use href="#i-nube"></use></svg></span>
+                      <p class="drop__titulo">Arrastra tu archivo Excel aquí</p>
+                      <p class="drop__ayuda">o <button type="button" class="enlace" id="btnBuscarArchivo">búscalo en tu equipo</button></p>
+                      <p class="drop__nota">Formatos admitidos: <code>.xlsx</code> <code>.xls</code> <code>.csv</code> · máximo 25 MB</p>
+                    </div>
+
+                    <!-- Barra de progreso real (XHR) -->
+                    <div class="progreso" id="progreso" hidden>
+                      <div class="progreso__cab">
+                        <span class="progreso__nombre" id="progresoNombre"></span>
+                        <span class="progreso__pct" id="progresoPct">0 %</span>
+                      </div>
+                      <div class="progreso__riel"><div class="progreso__barra" id="progresoBarra"></div></div>
+                      <p class="progreso__estado" id="progresoEstado">Preparando el envío…</p>
+                    </div>
+                  </form>
+
+                  <!-- Confirmación devuelta por el servidor -->
+                  <div class="confirm" id="confirmacion" hidden>
+                    <span class="confirm__icono"><svg class="ico"><use href="#i-check"></use></svg></span>
+                    <div class="confirm__cuerpo">
+                      <strong id="confirmNombre"></strong>
+                      <p id="confirmDetalle"></p>
+                      <code class="pastilla-codigo" id="confirmEstado">status: pending_processing</code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="modulo" data-modulo="cola">
+            <article class="tarjeta">
+              <header class="tarjeta__cab">
+                <div><h2>Cola del worker</h2><p>Archivos almacenados a la espera de proceso</p></div>
+                <button class="btn" id="btnRefrescarCola"><svg class="ico"><use href="#i-refrescar"></use></svg></button>
+              </header>
+              <div class="tarjeta__cuerpo">
+                <div class="skel-esq" data-skel>
+                  <div class="skel skel--linea"></div><div class="skel skel--linea"></div><div class="skel skel--linea"></div>
+                </div>
+                <div class="fallo" data-fallo hidden>
+                  <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
+                  <h3>No se pudo leer la cola</h3>
+                  <p data-fallo-msg></p>
+                  <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
+                </div>
+                <div data-datos="cola"></div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           VISTA 7 · AJUSTES
+           ================================================================ -->
+      <section class="vista" data-vista="ajustes" hidden>
+        <div class="rejilla-2">
+          <article class="tarjeta">
+            <header class="tarjeta__cab"><div><h2>Comportamiento de la interfaz</h2><p>Preferencias locales del panel</p></div></header>
+            <div class="tarjeta__cuerpo lista-set">
+              <label class="fila-set">
+                <span><strong>Tema oscuro</strong><small>Conmuta la paleta del panel</small></span>
+                <input type="checkbox" id="setTema" class="interruptor">
+              </label>
+              <label class="fila-set">
+                <span><strong>Simular fallo de red</strong><small>Fuerza un error en las peticiones para probar los reintentos</small></span>
+                <input type="checkbox" id="setFallo" class="interruptor">
+              </label>
+              <label class="fila-set">
+                <span><strong>Sidebar plegado</strong><small>Reduce la barra lateral a iconos</small></span>
+                <input type="checkbox" id="setSidebar" class="interruptor">
+              </label>
+              <div class="fila-set">
+                <span><strong>Retardo de la API</strong><small>Latencia simulada del servidor</small></span>
+                <select id="setRetardo" class="campo">
+                  <option value="0">Sin retardo</option>
+                  <option value="300">300 ms</option>
+                  <option value="900" selected>900 ms</option>
+                  <option value="1800">1800 ms</option>
+                </select>
+              </div>
+            </div>
+          </article>
+
+          <article class="tarjeta">
+            <header class="tarjeta__cab"><div><h2>Estado del servicio</h2><p>Respuesta de /api/health</p></div></header>
+            <div class="tarjeta__cuerpo">
+              <pre class="codigo" id="saludJson">consultando…</pre>
+              <button class="btn" id="btnComprobarSalud"><svg class="ico"><use href="#i-refrescar"></use></svg>Comprobar ahora</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- Avisos flotantes -->
+<div class="avisos" id="avisos" aria-live="polite" aria-atomic="false"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
