@@ -15,13 +15,14 @@
  *    GET  /api/dashboard/tecnologias      Stack detectado con riesgo
  *    GET  /api/dashboard/monitoreo        Salud de servicios
  *    GET  /api/dashboard/excepciones      Incidencias por severidad
- *    GET  /api/uploads                    Metadatos de lo recibido (pendiente)
- *    POST /api/upload-excel               Ingesta .xlsx/.xls/.csv → /uploads
+ *    GET  /api/uploads                    Metadatos de lo recibido + estado del pipeline
+ *    GET  /api/datos/estado               Resumen de los datos limpios vigentes
+ *    POST /api/upload-excel               Ingesta .xlsx/.xls/.csv → /uploads → pipeline
  *
  *  ── Principio de la ingesta (NO NEGOCIABLE) ────────────────────────────────
  *  Node.js NO abre, parsea, limpia ni procesa los Excel. Sólo es un guardián
- *  de recepción seguro: valida, almacena y devuelve metadatos con
- *  status:'pending_processing' para que un worker futuro de Python los consuma.
+ *  de recepción seguro: valida y almacena, y delega la limpieza en el
+ *  pipeline de Python (backend/ingesta.js → pipeline/pipeline.py).
  * ============================================================================
  */
 
@@ -32,6 +33,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const url = require('url');
+const ingesta = require('./backend/ingesta');
 
 /* ============================================================================
  *  1. CONFIGURACIÓN
@@ -347,21 +349,22 @@ function asegurarUploads() {
 
 /**
  * Lista los archivos recibidos SOLO con sus metadatos.
- * No lee contenido ni ejecuta nada sobre ellos: eso es trabajo del worker.
+ * No lee su contenido: el estado lo aporta el registro del pipeline.
  */
 function listarUploads() {
   return fs.readdirSync(UPLOADS_DIR)
     .filter((n) => !n.startsWith('.'))
     .map((n) => {
       const st = fs.statSync(path.join(UPLOADS_DIR, n));
+      const id = n.split('__')[0];
       return {
-        id: n.split('__')[0],
+        id,
         archivo: n.split('__').slice(1).join('__') || n,
         bytes: st.size,
         bytesLegibles: etiquetaBytes(st.size),
         recibidoEn: st.birthtime.toISOString(),
-        // El estado sólo cambia cuando un worker externo lo actualice.
-        status: 'pending_processing',
+        // status (pending_processing | procesado | error), avisos o error del pipeline
+        ...ingesta.estadoDe(id),
       };
     })
     .sort((a, b) => new Date(b.recibidoEn) - new Date(a.recibidoEn));
@@ -460,7 +463,8 @@ function leerCuerpo(req, limite) {
 
 /**
  * POST /api/upload-excel
- * Valida y guarda el archivo. NO lo abre ni lo transforma.
+ * Valida y guarda el archivo. NO lo abre ni lo transforma: eso lo hace el
+ * pipeline, y la respuesta espera a su resultado.
  */
 async function apiUploadExcel(req, res) {
   const tipo = req.headers['content-type'] || '';
@@ -513,18 +517,27 @@ async function apiUploadExcel(req, res) {
     return enviarError(res, 500, 'STORAGE_ERROR', 'No se pudo guardar el archivo en el almacén de recepción.');
   }
 
-  console.log(`[uploads] Recibido ${nombreDisco} (${etiquetaBytes(archivo.datos.length)}) → pending_processing`);
+  console.log(`[uploads] Recibido ${nombreDisco} (${etiquetaBytes(archivo.datos.length)}) → pipeline`);
+  const recibidoEn = isoAhora();
+  const resultado = await ingesta.procesar(destino, id);
 
-  // Respuesta: metadatos + estado. El frontend muestra la confirmación.
+  // Si el pipeline rechaza el archivo, los datos limpios anteriores siguen vigentes.
+  if (resultado.status === 'error') {
+    return enviarError(res, 422, 'PROCESSING_ERROR',
+      `No se pudo procesar el archivo: ${resultado.error.replace(/\.$/, '')}. Se mantienen los datos anteriores.`,
+      { id, archivo: nombreLimpio, status: 'error' });
+  }
+
+  // Respuesta: metadatos + resultado del pipeline. El frontend muestra la confirmación.
   enviarJSON(res, 201, {
     id,
     archivo: nombreLimpio,
     bytes: archivo.datos.length,
     bytesLegibles: etiquetaBytes(archivo.datos.length),
     contentType: mimeDe(ext),
-    recibidoEn: isoAhora(),
-    status: 'pending_processing',
-    mensaje: 'Archivo almacenado. Queda en cola para el worker de procesamiento.',
+    recibidoEn,
+    ...resultado,
+    mensaje: `Archivo procesado: ${resultado.filas} equipos. Los dashboards ya usan estos datos.`,
   });
 }
 
@@ -541,9 +554,10 @@ function servirEstatico(req, res, pathname) {
     return enviarErrorHTML(res, 403, 'Acceso denegado', 'Ruta fuera del directorio permitido.');
   }
 
-  // El almacén de ingesta es privado: sólo se exponen metadatos por la API.
-  if (pathname.startsWith('/uploads')) {
-    return enviarErrorHTML(res, 403, 'Acceso denegado', 'El almacén de recepción no es público.');
+  // El almacén de ingesta, los datos limpios y el código del servidor son privados:
+  // sólo se exponen por la API.
+  if (/^\/(uploads|data|backend|pipeline)(\/|$)/.test(pathname)) {
+    return enviarErrorHTML(res, 403, 'Acceso denegado', 'Este recurso no es público.');
   }
 
   const ext = path.extname(destino).toLowerCase();
@@ -712,15 +726,23 @@ async function apiMonitoreo(req, res, query) {
   });
 }
 
-/** GET /api/uploads → cola de ingesta pendiente del worker */
+/** GET /api/uploads → archivos recibidos con el resultado del pipeline */
 function apiListarUploads(res) {
   const filas = listarUploads();
   enviarJSON(res, 200, {
     filas,
-    pendientes: filas.length,
-    estado: 'pending_processing',
-    nota: 'Node.js no procesa los archivos: sólo los almacena y los deja en cola.',
+    pendientes: filas.filter((f) => f.status === 'pending_processing').length,
+    nota: 'Cada archivo se limpia con el pipeline al recibirlo; el último procesado alimenta los dashboards.',
   });
+}
+
+/** GET /api/datos/estado → resumen de los datos limpios vigentes (o disponible:false) */
+function apiEstadoDatos(res) {
+  const meta = ingesta.metaActual();
+  if (!meta) return enviarJSON(res, 200, { disponible: false });
+  // En disco el archivo es {id}__{nombre}: al front sólo le interesa el nombre.
+  const archivoOrigen = meta.archivo_origen.split('__').slice(1).join('__') || meta.archivo_origen;
+  enviarJSON(res, 200, { disponible: true, ...meta, archivo_origen: archivoOrigen });
 }
 
 /* ============================================================================
@@ -755,6 +777,7 @@ async function enrutar(req, res) {
     case '/api/dashboard/tecnologias': return apiTecnologias(req, res, query);
     case '/api/dashboard/monitoreo':   return apiMonitoreo(req, res, query);
     case '/api/uploads':               return apiListarUploads(res);
+    case '/api/datos/estado':          return apiEstadoDatos(res);
     case '/api/upload-excel':          return apiUploadExcel(req, res);
   }
 
@@ -802,6 +825,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  → Salud:   http://${HOST}:${PORT}/api/health`);
   console.log(`  → Ingesta: POST http://${HOST}:${PORT}/api/upload-excel  (campo "file")`);
   console.log(`  → Retardo simulado: ${DELAY_MS}ms  ·  almacén: ${UPLOADS_DIR}`);
+  console.log(`  → Datos limpios: ${ingesta.DATA_DIR}`);
   console.log('');
 });
 

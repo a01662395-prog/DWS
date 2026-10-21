@@ -15,6 +15,8 @@
  *    · "Módulo" = bloque HTML con data-modulo, data-skel, data-fallo.
  *    · Badge   = contador numérico en el sidebar y en los iconos.
  *    · Aviso   = notificación flotante (toast).
+ *    · Componentes en /componentes: cada uno es dueño de su vista y recibe
+ *      de este archivo sólo las utilidades que usa (p. ej. ingesta.js).
  * ========================================================================== */
 
 'use strict';
@@ -66,7 +68,7 @@ const MODULOS = {
   monitoreo:   { cargar: () => api('/dashboard/monitoreo'), pintar: pintarMonitoreo },
   excepciones: { cargar: () => api('/dashboard/excepciones', filtros.excepciones), pintar: pintarExcepciones },
   carga:       { cargar: () => api('/health'), pintar: () => {} },   // sólo comprueba que la ingesta responde
-  cola:        { cargar: () => api('/uploads'), pintar: pintarCola },
+  cola:        { cargar: () => Ingesta.cargarCola(), pintar: (d) => Ingesta.pintarCola(d) },   // componentes/ingesta.js
 };
 
 /** Filtros vivos de cada módulo (se envían como query). */
@@ -806,34 +808,6 @@ function pintarExcepciones(d) {
   setBadge('excepciones', d.conteo.critica);
 }
 
-/* ------------------------ Cola del worker ------------------------------- */
-function pintarCola(d) {
-  const cont = document.querySelector('[data-datos="cola"]');
-  setBadge('carga', d.pendientes);
-
-  if (!d.filas.length) {
-    cont.innerHTML = `<div class="vacio"><strong>La cola está vacía</strong>
-      Sube un archivo .xlsx, .xls o .csv y aparecerá aquí como <code>pending_processing</code>.</div>`;
-    return;
-  }
-
-  cont.innerHTML = `
-    <p class="paginacion__info" style="margin-bottom:14px">
-      ${num(d.pendientes)} archivo(s) esperando al worker · ${esc(d.nota)}
-    </p>
-    <div class="cola-lista">
-      ${d.filas.map((f) => `
-        <article class="cola-item">
-          <span class="cola-item__ico">${icono('subir')}</span>
-          <div class="cola-item__t">
-            <strong>${esc(f.archivo)}</strong>
-            <small>${esc(f.bytesLegibles)} · recibido ${esc(fechaHora(f.recibidoEn))}</small>
-          </div>
-          <span class="etiqueta et--violeta">${esc(f.status)}</span>
-        </article>`).join('')}
-    </div>`;
-}
-
 /* ==========================================================================
  *  8. MOTORES DE GRÁFICO (CANVAS)
  * ========================================================================== */
@@ -1026,137 +1000,6 @@ function observarResize(canvas, fn) {
 }
 
 /* ==========================================================================
- *  9. CARGA DE EXCEL (Drag & Drop + progreso real con XHR)
- * ========================================================================== */
-
-const MAX_MB = 25;
-const EXT_OK = ['.xlsx', '.xls', '.csv'];
-
-const zonaSoltar = document.getElementById('zonaSoltar');
-const inputExcel = document.getElementById('inputExcel');
-const progreso = document.getElementById('progreso');
-const barraProgreso = document.getElementById('progresoBarra');
-
-/** Valida el archivo antes de enviarlo: no desperdicia red con errores tontos. */
-function validarArchivo(archivo) {
-  if (!archivo) return 'No se ha seleccionado ningún archivo.';
-  const ext = '.' + archivo.name.split('.').pop().toLowerCase();
-  if (!EXT_OK.includes(ext)) return `Formato no admitido: ${ext}. Se aceptan ${EXT_OK.join(', ')}.`;
-  if (archivo.size > MAX_MB * 1024 * 1024) return `El archivo supera el máximo de ${MAX_MB} MB.`;
-  if (archivo.size === 0) return 'El archivo está vacío.';
-  return null;
-}
-
-function pintarProgreso(porcentaje, texto, error = false) {
-  progreso.hidden = false;
-  barraProgreso.style.width = `${Math.max(0, Math.min(100, porcentaje))}%`;
-  document.getElementById('progresoPct').textContent = `${Math.round(porcentaje)} %`;
-  document.getElementById('progresoEstado').textContent = texto;
-  progreso.classList.toggle('es-error', error);
-}
-
-/**
- * Envía el archivo con XMLHttpRequest porqueFetch no expone progreso
- * de subida. Al terminar, el servidor responde con los metadatos.
- */
-function enviarArchivo(archivo) {
-  const problema = validarArchivo(archivo);
-  zonaSoltar.classList.toggle('is-error', !!problema);
-  if (problema) {
-    avisar('Archivo no válido', problema, 'error');
-    return;
-  }
-
-  document.getElementById('confirmacion').hidden = true;
-  document.getElementById('progresoNombre').textContent = archivo.name;
-  pintarProgreso(0, 'Preparando el envío…');
-
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', `${API}/upload-excel`);
-
-  // Progreso de envío (sólo mientras hay bytes en vuelo)
-  xhr.upload.onprogress = (e) => {
-    if (!e.lengthComputable) return;
-    const pct = (e.loaded / e.total) * 100;
-    pintarProgreso(pct, pct < 100 ? 'Transmitiendo al almacén…' : 'Procesando en el servidor…');
-  };
-
-  xhr.onload = () => {
-    let cuerpo = null;
-    try { cuerpo = JSON.parse(xhr.responseText); } catch { /* respuesta no JSON */ }
-
-    if (xhr.status >= 200 && xhr.status < 300 && cuerpo) {
-      pintarProgreso(100, 'Archivo almacenado correctamente.');
-      mostrarConfirmacion(cuerpo);
-      avisar('Ingesta en cola', `${cuerpo.archivo} · ${cuerpo.bytesLegibles}`, 'exito');
-      anadirNotificacion('exito', 'Archivo recibido', `${cuerpo.archivo} queda como ${cuerpo.status}.`);
-      cargarModulo('cola', { forzar: true });   // la cola se actualiza sola
-    } else {
-      const msg = cuerpo?.message || `El servidor respondió ${xhr.status}.`;
-      pintarProgreso(100, msg, true);
-      avisar('No se pudo cargar el archivo', msg, 'error');
-    }
-  };
-
-  xhr.onerror = () => {
-    pintarProgreso(100, 'Se perdió la conexión con el servidor.', true);
-    avisar('Error de red', 'El archivo no ha llegado al almacén de recepción.', 'error');
-  };
-
-  const datos = new FormData();
-  datos.append('file', archivo);          // campo que espera el backend
-  datos.append('nombreOriginal', archivo.name);
-  xhr.send(datos);
-}
-
-function mostrarConfirmacion(d) {
-  const caja = document.getElementById('confirmacion');
-  caja.hidden = false;
-  document.getElementById('confirmNombre').textContent = d.archivo;
-  document.getElementById('confirmDetalle').textContent =
-    `${d.bytesLegibles} · recibido el ${fechaHora(d.recibidoEn)}. ${d.mensaje}`;
-  document.getElementById('confirmEstado').textContent = `status: ${d.status}`;
-}
-
-/** Conecta todos los eventos del Drag & Drop. */
-function conectarCarga() {
-  zonaSoltar.addEventListener('click', () => inputExcel.click());
-  zonaSoltar.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputExcel.click(); }
-  });
-  document.getElementById('btnBuscarArchivo').addEventListener('click', (e) => {
-    e.stopPropagation();
-    inputExcel.click();
-  });
-  inputExcel.addEventListener('change', () => {
-    if (inputExcel.files[0]) enviarArchivo(inputExcel.files[0]);
-  });
-
-  ['dragenter', 'dragover'].forEach((evt) => zonaSoltar.addEventListener(evt, (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    zonaSoltar.classList.add('is-sobre');
-    pintarProgreso(0, 'Suelta el archivo para enviarlo…');
-  }));
-
-  ['dragleave', 'drop'].forEach((evt) => zonaSoltar.addEventListener(evt, (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (evt === 'dragleave' && zonaSoltar.contains(e.relatedTarget)) return;
-    zonaSoltar.classList.remove('is-sobre');
-  }));
-
-  zonaSoltar.addEventListener('drop', (e) => {
-    const archivo = e.dataTransfer?.files?.[0];
-    if (archivo) enviarArchivo(archivo);
-  });
-
-  // El formulario nunca se envía de forma nativa: todo pasa por XHR.
-  document.getElementById('formCarga').addEventListener('submit', (e) => e.preventDefault());
-  document.getElementById('btnRefrescarCola').onclick = () => cargarModulo('cola', { forzar: true });
-}
-
-/* ==========================================================================
  *  10. ARRANQUE
  * ========================================================================== */
 
@@ -1298,8 +1141,14 @@ function iniciar() {
   conectarTema();
   conectarNotificaciones();
   conectarFiltros();
-  conectarCarga();
   conectarAjustes();
+
+  // Componente de ingesta: recibe las utilidades del panel que necesita.
+  Ingesta.iniciar({
+    api, avisar, anadirNotificacion, cargarModulo, setBadge, esc, num, icono, fechaHora,
+    // Datos limpios nuevos: se vacía la caché para que cada dashboard los pida al abrirse.
+    alProcesar: () => { estado.cache = {}; },
+  });
 
   // Vista inicial según el hash (permite enlaces profundos /#/inventario)
   irA((location.hash || '#/resumen').slice(2), { empujar: false });

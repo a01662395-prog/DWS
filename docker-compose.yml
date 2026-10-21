@@ -9,7 +9,9 @@ services:
       - SIMULATED_DELAY_MS=900
     volumes:
       - uploads_data:/app/uploads
+      - clean_data:/app/data          # datos limpios del pipeline (current.json)
     restart: unless-stopped
 
 volumes:
   uploads_data:
+  clean_data:

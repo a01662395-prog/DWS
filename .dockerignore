@@ -4,5 +4,9 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 uploads/
+data/
+.venv/
+__pycache__/
 node_modules/
+*.ipynb
 *.md

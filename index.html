@@ -353,9 +353,9 @@
       </section>
 
       <!-- ================================================================
-           VISTA 6 · CARGAR EXCEL  (ingesta diferida)
-           Frontend → Express/Core → /uploads → (futuro worker Python) → PostgreSQL
-           Node.js NO abre ni procesa el archivo: sólo lo almacena.
+           VISTA 6 · CARGAR EXCEL  → lógica en componentes/ingesta.js
+           Frontend → Node /uploads → pipeline Python → data/current.json → dashboards
+           Node.js NO abre ni procesa el archivo: lo hace pipeline/pipeline.py.
            ================================================================ -->
       <section class="vista" data-vista="carga" hidden>
         <div class="rejilla-2 rejilla-2--carga">
@@ -363,7 +363,7 @@
           <div class="modulo" data-modulo="carga">
             <article class="tarjeta">
               <header class="tarjeta__cab">
-                <div><h2>Ingesta de hojas de cálculo</h2><p>Envío directo al almacén de recepción</p></div>
+                <div><h2>Ingesta de hojas de cálculo</h2><p>Se limpia al recibirlo y alimenta los dashboards</p></div>
               </header>
               <div class="tarjeta__cuerpo">
                 <div class="skel-esq" data-skel>
@@ -405,7 +405,9 @@
                     <div class="confirm__cuerpo">
                       <strong id="confirmNombre"></strong>
                       <p id="confirmDetalle"></p>
-                      <code class="pastilla-codigo" id="confirmEstado">status: pending_processing</code>
+                      <code class="pastilla-codigo" id="confirmEstado">status: procesado</code>
+                      <!-- Avisos del pipeline (columnas eliminadas, valores no esperados…) -->
+                      <ul id="confirmAvisos" style="margin:10px 0 0 18px;font-size:12.5px" hidden></ul>
                     </div>
                   </div>
                 </div>
@@ -416,7 +418,7 @@
           <div class="modulo" data-modulo="cola">
             <article class="tarjeta">
               <header class="tarjeta__cab">
-                <div><h2>Cola del worker</h2><p>Archivos almacenados a la espera de proceso</p></div>
+                <div><h2>Historial de cargas</h2><p>Archivos recibidos y resultado de la limpieza</p></div>
                 <button class="btn" id="btnRefrescarCola"><svg class="ico"><use href="#i-refrescar"></use></svg></button>
               </header>
               <div class="tarjeta__cuerpo">
@@ -425,7 +427,7 @@
                 </div>
                 <div class="fallo" data-fallo hidden>
                   <svg class="ico ico--grande"><use href="#i-wifi-off"></use></svg>
-                  <h3>No se pudo leer la cola</h3>
+                  <h3>No se pudo leer el historial</h3>
                   <p data-fallo-msg></p>
                   <button class="btn btn--primario" data-reintentar><svg class="ico"><use href="#i-reintentar"></use></svg>Reintentar conexión</button>
                 </div>
@@ -485,6 +487,7 @@
 <!-- Avisos flotantes -->
 <div class="avisos" id="avisos" aria-live="polite" aria-atomic="false"></div>
 
+<script src="componentes/ingesta.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
